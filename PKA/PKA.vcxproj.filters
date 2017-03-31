@@ -27,6 +27,9 @@
     <ClCompile Include="Intercept.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="NDFSA_test.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utility.h">
@@ -39,6 +42,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DynamicArray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FSA.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

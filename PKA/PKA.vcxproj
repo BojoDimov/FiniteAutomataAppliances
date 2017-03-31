@@ -114,11 +114,13 @@
     <ClCompile Include="DynamicHashN.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Intercept.cpp" />
+    <ClCompile Include="NDFSA_test.cpp" />
     <ClCompile Include="utility.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DynamicArray.h" />
     <ClInclude Include="DynamicHashN.h" />
+    <ClInclude Include="FSA.h" />
     <ClInclude Include="Intercept.h" />
     <ClInclude Include="utility.h" />
   </ItemGroup>

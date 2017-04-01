@@ -1,8 +1,11 @@
 #pragma once
 #include <vector>
 #include <map>
+#include <set>
 #include <unordered_map>
+#include <algorithm>
 #include <string>
+#include <iostream>
 
 using namespace std;
 struct ATransition {
@@ -16,6 +19,7 @@ struct StateDescriptor {
 	bool is_starting;
 	bool is_final;
 };
+
 class FSA
 {
 	/* default disposition is 1 so all automata start their states from 1*/
@@ -31,7 +35,7 @@ class FSA
 		int counter = 0;
 		unordered_map<int, int> st_map;
 
-		for (auto& s : states) {
+		for (const auto& s : states) {
 			st_map[s.state] = k;
 			starting[counter] = s.is_starting;
 			accepting[counter] = s.is_final;
@@ -39,7 +43,7 @@ class FSA
 			k++;
 		}
 
-		for (auto& t : trn) {
+		for (auto&& t : trn) {
 			t.source = st_map[t.source];
 			t.dest = st_map[t.dest];
 		}
@@ -48,10 +52,20 @@ class FSA
 	bool _check(int state, vector<string>& input, int index) {
 		/*	naive implementation need to check whole trn array to get the right transitions */
 		if (index == input.size()) {
-			return accepting[state - disposition];
+			if (accepting[state - disposition]) {
+				return true;
+			}
+			for (const auto& t : trn) {
+				//e-transitions
+				if (t.source == state && t.word == "" && _check(t.dest, input, index)) {
+					return true;
+				}
+			}
+
+			return false;
 		}
 
-		for (auto& t : trn) {
+		for (const auto& t : trn) {
 			//normal transitions
 			if (t.source == state && t.word == input[index] && _check(t.dest, input, index + 1)) {
 				return true;
@@ -132,7 +146,7 @@ public:
 			k++;
 		}
 
-		for (auto& t : trn) {
+		for (auto&& t : trn) {
 			t.source = st_map[t.source];
 			t.dest = st_map[t.dest];
 		}
@@ -280,4 +294,149 @@ public:
 		return result;
 	}
 };
+
+void tripleSort(vector<ATransition>& trn) {
+	auto less_s = [](const ATransition& a, const ATransition& b)
+	{
+		return a.source < b.source;
+	};
+
+	auto less_w = [](const ATransition& a, const ATransition& b)
+	{
+		return a.word < b.word;
+	};
+
+	auto less_d = [](const ATransition& a, const ATransition& b)
+	{
+		return a.dest < b.dest;
+	};
+
+	//sort by source
+	sort(trn.begin(), trn.end(), less_s);
+
+	auto st_start = trn.begin();
+
+	//partial sort by word
+	for (auto it = trn.begin()+1; it != trn.end(); it++) {
+		if (it->source != st_start->source) {
+			sort(st_start, it, less_w);
+			st_start = it;
+		}
+	}
+
+	st_start = trn.begin();
+
+	//partial sort by destination
+	for (auto it = trn.begin() + 1; it != trn.end(); it++) {
+		if (it->source == st_start->source &&  it->word != st_start->word) {
+			sort(st_start, it, less_d);
+			st_start = it;
+		}
+
+		if (it->source != st_start->source) {
+			sort(st_start, it, less_d);
+			st_start = it;
+		}
+	}
+}
+
+void deltaETClosureForward(int initial, int current, vector<ATransition>& trn, vector<ATransition>& additional, set<int>& closure) {
+	//for every state we are traversing the whole transition table - TODO:// sort the table by e-transitions
+	//and index the start of each state
+	for (const auto& t : trn) {
+		if (t.source == current && t.word == "" && closure.find(t.dest) == closure.end()) {
+			closure.insert(t.dest);
+			deltaETClosureForward(initial, t.dest, trn, additional, closure);
+		}
+		else if (t.source == current && t.word != "") {
+			additional.push_back({ initial, t.word, t.dest });
+		}
+	}
+}
+
+void deltaETClosureBackward(int initial, int current, vector<ATransition>& trn, vector<ATransition>& additional, set<int>& closure) {
+	//for every state we are traversing the whole transition table - TODO:// sort the table by e-transitions
+	//and index the start of each state
+	for (const auto& t : trn) {
+		if (t.dest == current && t.word == "" && closure.find(t.source) == closure.end()) {
+			closure.insert(t.source);
+			deltaETClosureBackward(initial, t.source, trn, additional, closure);
+		}
+		else if (t.dest == current && t.word != "") {
+			additional.push_back({ t.source, t.word, initial });
+		}
+	}
+}
+
+vector<ATransition> epsillonRemoval(int stateSize, int disposition, vector<ATransition> trn) {
+	//O(5*nlogn + n*O(deltaETClosure))
+	//it is not working properly
+	vector<ATransition> result;
+	set<int> closure;
+
+	//sort by e-transitions and source
+
+	for(int i = 0 ; i < stateSize; i++){
+		closure.clear();
+		//the forwards closure is state---(e)--->b---word--->a
+		//resulting in state---word--->a
+		deltaETClosureForward( i + disposition, i + disposition, trn, result, closure);
+		//now we need the backward closure when we have a---word--->b---(e)--->state
+		//resulting in a---word--->state
+		closure.clear();
+		deltaETClosureBackward(i + disposition, i + disposition, trn, result, closure);
+	}
+
+	tripleSort(result);
+
+	auto equal = [](const ATransition& a, const ATransition& b)
+	{
+		return a.source == b.source && a.word == b.word && a.dest == b.dest;
+	};
+
+	for (auto it = result.begin() + 1; it != result.end(); it++) {
+		if (equal(*it, *(it - 1))) {
+			auto before = it-1;
+			result.erase(it);
+			it = before;
+		}
+	}
+
+	return result;
+}
+
+void _recursiveStepUnreachable(vector<ATransition>& trn, bool *marked, int disposition) {
+	for (const auto& t : trn) {
+		if (!marked[t.source - disposition]) {
+			marked[t.source - disposition] = true;
+			_recursiveStepUnreachable(trn, marked, disposition);
+		}
+	}
+}
+
+void removeUnreachable(vector<ATransition>& trn, int stateSize, int disposition) {
+	bool *marked = new bool[stateSize];
+	for (int i = 0; i < stateSize; i++) {
+		marked[i] = false;
+	}
+
+	for (const auto& t : trn) {
+		if (!marked[t.source - disposition]) {
+			marked[t.source - disposition] = true;
+			_recursiveStepUnreachable(trn, marked, disposition);
+		}
+	}
+
+	auto temp_it = trn.begin();
+	for (auto it = trn.begin(); it != trn.end(); it++) {
+		if (!marked[it->source - disposition]) {
+			temp_it = it - 1;
+			trn.erase(it);
+			it = temp_it;
+		}
+	}
+}
+
+
+
 

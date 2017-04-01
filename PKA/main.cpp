@@ -27,14 +27,16 @@ int main() {
 	{
 		{ 15, "qm", 69 },
 		{ 69, "shokolad", 120 },
-		{ 120, "qm", 69 }
+		{ 120, "qm", 69 },
 	});
 
 	
 
 	FSA automata2 = FSA::Union(automata, automata1);
 	FSA automata3 = FSA::Concat(automata, automata1);
-	FSA automata4 = FSA::Star(automata1, false);
+	FSA automata4 = FSA::Star(automata1, true);
+	auto trn = epsillonRemoval(automata4.stateSize, automata4.disposition, automata4.trn);
+	removeUnreachable(trn, automata4.stateSize, automata4.disposition);
 
 	bool sth = automata.check({ "baba qga", "qj", "qj" });
 	bool sth2 = automata2.check({ "baba qga", "qj", "qj" });
@@ -44,5 +46,7 @@ int main() {
 	bool sth6 = automata1.check({});
 	bool sth7 = automata4.check({});
 	bool sth8 = automata4.check({ "qm", "shokolad" });
+	automata4.trn = epsillonRemoval(automata4.stateSize, automata4.disposition, automata4.trn);
+	bool sth9 = automata4.check({ "qm", "shokolad" });
 	return 0;
 }
